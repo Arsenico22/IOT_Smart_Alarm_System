@@ -1,0 +1,21 @@
+# Makefile per ActuatorAppC
+
+COMPONENT=ActuatorAppC
+
+
+
+# Il canale radio DEVE essere uguale a quello del nodo sensore e della Base Station
+
+PFLAGS += -DCC2420_DEF_CHANNEL=24
+
+
+
+# TOSH_DATA_LENGTH deve essere sufficientemente grande per CombinedSensorMsg
+
+# sizeof(CombinedSensorMsg) = 9 bytes. Un valore di 16 o 30 è sicuro.
+
+PFLAGS += -DTOSH_DATA_LENGTH=16
+
+
+
+include $(MAKERULES)

@@ -1,0 +1,39 @@
+// ActuatorAppC.nc
+
+// Configurazione per il nodo attuatore.
+
+
+
+#include "pkt.h"
+
+
+
+configuration ActuatorAppC { }
+
+implementation {
+
+    components MainC, ActuatorC, LedsC;
+
+    components ActiveMessageC;
+
+
+
+    components new AMReceiverC(AM_COMBINED_SENSOR_MSG);
+
+
+
+    // --- Cablaggio dei componenti (Wiring) ---
+
+
+
+    ActuatorC.Boot -> MainC;
+
+    ActuatorC.Leds -> LedsC;
+
+
+
+    ActuatorC.AMReceive -> AMReceiverC;
+
+    ActuatorC.RadioControl -> ActiveMessageC;
+
+}

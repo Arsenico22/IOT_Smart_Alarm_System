@@ -1,0 +1,31 @@
+// BaseStationAppC.nc
+// Configurazione per la Base Station combinata e con invio allarme remoto
+
+#define NEW_PRINTF_SEMANTICS
+#include "printf.h"
+#include "pkt.h"
+
+configuration BaseStationAppC { }
+implementation {
+    components MainC, BaseStationC, LedsC;
+    components ActiveMessageC;
+    components new AMReceiverC(AM_COMBINED_SENSOR_MSG); // Per ricevere dati dai sensori
+    components new AMSenderC(AM_COMBINED_SENSOR_MSG) as AlarmSenderC; // Per inviare comandi di allarme
+
+    components PrintfC;
+    components SerialStartC;
+
+    // --- Cablaggio dei componenti (Wiring) ---
+
+    BaseStationC.Boot -> MainC;
+    BaseStationC.Leds -> LedsC;
+
+    // Cablaggio per la ricezione dei dati dai sensori
+    BaseStationC.AMReceive -> AMReceiverC;
+    BaseStationC.RadioControl -> ActiveMessageC;
+
+    // Cablaggio per l'invio dei comandi di allarme
+    BaseStationC.AlarmSender -> AlarmSenderC;
+    BaseStationC.Packet -> AlarmSenderC; // La Base Station userà Packet dall'AlarmSenderC per creare il messaggio
+}
+

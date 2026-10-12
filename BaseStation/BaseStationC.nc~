@@ -1,0 +1,152 @@
+// BaseStationC.nc
+// Modulo logico per la Base Station combinata
+// Ora invia un messaggio di allarme a un nodo attuatore
+
+#define NEW_PRINTF_SEMANTICS
+#include "printf.h"
+#include "pkt.h"
+
+module BaseStationC @safe() {
+    uses interface Boot;
+    uses interface Leds;
+    uses interface Receive as AMReceive;
+    uses interface Packet; // Usato per manipolare il pacchetto di allarme
+    uses interface SplitControl as RadioControl;
+    uses interface AMSend as AlarmSender; // Interfaccia per inviare il messaggio di allarme
+}
+
+implementation {
+    // Definizione delle soglie di allarme (AGGIORNATE SECONDO LE TUE SPECIFICHE)
+    #define TEMP_HIGH_THRESHOLD 40.0   // ALLARME: temperatura > 40°C
+    #define HUMIDITY_HIGH_THRESHOLD 75.0 // ALLARME: umidità > 75%
+    #define LUX_HIGH_THRESHOLD 200.0 // ALLARME: luminosità > 200 LUX (rimossa soglia bassa)
+
+    message_t alarmPacket; // Buffer per il messaggio di allarme da inviare
+    bool alarmSendLocked = FALSE; // Flag per prevenire invii multipli di allarme
+
+    // --- Eventi di Boot ---
+    event void Boot.booted() {
+        call RadioControl.start(); // Avvia la radio all'avvio
+    }
+
+    // --- Eventi di Controllo Radio ---
+    event void RadioControl.startDone(error_t err) {
+        if (err == SUCCESS) {
+            call Leds.led2On(); // LED2 si accende: radio avviata con successo
+            printf("Base Station avviata. In attesa di dati dai sensori...\n");
+        } else {
+            call RadioControl.start();
+        }
+    }
+
+    event void RadioControl.stopDone(error_t err) { }
+
+    // --- Evento di Ricezione Messaggi dai Sensori ---
+    event message_t* AMReceive.receive(message_t* bufPtr, void* payload, uint8_t len) {
+        // Dichiarazioni di variabili
+        CombinedSensorMsg* msg;
+        uint16_t dataCelsius;
+        float c1, c2, c3, humidityLinear, lux;
+        uint16_t humidityPrinted;
+        uint16_t luxPrinted;
+        float Vref = 1.5; // Non usate, ma mantenute come nel tuo codice
+        float resistor = 10000.0; // Non usate, ma mantenute come nel tuo codice
+
+        bool isAlarmConditionMet = FALSE; // Flag per indicare se UNA condizione di allarme è vera
+
+        call Leds.led0On();
+        call Leds.led0Off();
+
+        if (len != sizeof(CombinedSensorMsg)) {
+            printf("Errore: Lunghezza messaggio non valida (%hhu bytes).\n", len);
+            return bufPtr;
+        }
+
+        msg = (CombinedSensorMsg*)payload;
+
+        printf("\n--- Dati ricevuti da Nodo ID: %u ---\n", msg->nodeid);
+
+        // --- Stampa e Logica per il Movimento (PIR) ---
+        if (msg->motionDetected == MOTION) { // CONDIZIONE 1: MOVIMENTO RILEVATO
+            printf("  Movimento: RILEVATO!\n");
+            call Leds.led1On(); // Accendi LED1 per segnalare l'allarme movimento
+            isAlarmConditionMet = TRUE;
+        } else {
+            printf("  Movimento: Non rilevato\n");
+            call Leds.led1Off(); // Spegni LED1 se non c'è movimento
+        }
+
+        // --- Calcolo e Stampa Temperatura ---
+        dataCelsius = -39 + (uint16_t)(0.01 * msg->temperatureRaw);
+        printf("  Temperatura: %d C\n", dataCelsius);
+        if (dataCelsius > TEMP_HIGH_THRESHOLD) { // CONDIZIONE 2: TEMPERATURA SOPRA I 40 GRADI
+            printf("!!! ALLARME: Temperatura Elevata (%d C) !!!\n", dataCelsius);
+            isAlarmConditionMet = TRUE;
+        }
+
+        // --- Calcolo e Stampa Umidità ---
+        c1 = -4.0;
+        c2 = 0.0405;
+        c3 = -2.8e-6;
+        humidityLinear = c1 + c2 * msg->humidityRaw + c3 * msg->humidityRaw * msg->humidityRaw;
+        humidityPrinted = (uint16_t)(humidityLinear * 100);
+        printf("  Umidita': %u.%02u%%\n", humidityPrinted / 100, humidityPrinted % 100);
+        if (humidityLinear > HUMIDITY_HIGH_THRESHOLD) { // CONDIZIONE 3: UMIDITA SOPRA IL 75
+            printf("!!! ALLARME: Umidita' Elevata (%u.%02u%%) !!!\n", humidityPrinted / 100, humidityPrinted % 100);
+            isAlarmConditionMet = TRUE;
+        }
+
+        // --- Calcolo e Stampa Luminosità ---
+        lux = (float)msg->lightRaw * 0.21;
+        luxPrinted = (uint16_t)(lux * 100);
+        printf("  Luminosita': %u.%02u LUX\n", luxPrinted / 100, luxPrinted % 100);
+        if (lux > LUX_HIGH_THRESHOLD) { // CONDIZIONE 4: LUMINOSITA SOPRA 200 LUX
+            printf("!!! ALLARME: Luminosita' Elevata %u.%02u LUX !!!\n", luxPrinted / 100, luxPrinted % 100);
+            isAlarmConditionMet = TRUE;
+        }
+        // Rimosso: else if (lux < LUX_LOW_THRESHOLD) // La condizione di bassa luminosità non è più richiesta
+
+        // --- Invio del Segnale di Allarme all'Attuatore ---
+        if (!alarmSendLocked) { // Invia solo se non c'è già un invio in corso
+            CombinedSensorMsg* alarmPayload = (CombinedSensorMsg*)call Packet.getPayload(&alarmPacket, sizeof(CombinedSensorMsg));
+
+            if (alarmPayload != NULL) {
+                // Popola il messaggio di allarme
+                alarmPayload->nodeid = TOS_NODE_ID; // ID della Base Station
+                alarmPayload->motionDetected = msg->motionDetected; // Riflette lo stato del sensore
+                alarmPayload->temperatureRaw = msg->temperatureRaw;
+                alarmPayload->humidityRaw = msg->humidityRaw;
+                alarmPayload->lightRaw = msg->lightRaw;
+
+                if (isAlarmConditionMet) {
+                    alarmPayload->alarmStatus = ALARM_ON;
+                    printf(">>> Invio comando: ALLARME ON <<<\n");
+                } else {
+                    alarmPayload->alarmStatus = ALARM_OFF;
+                    printf(">>> Invio comando: ALLARME OFF <<<\n");
+                }
+
+                // Invia il messaggio di allarme in broadcast (o a un indirizzo specifico dell'attuatore)
+                if (call AlarmSender.send(AM_BROADCAST_ADDR, &alarmPacket, sizeof(CombinedSensorMsg)) == SUCCESS) {
+                    alarmSendLocked = TRUE; // Blocca l'invio fino a sendDone
+                }
+            }
+        }
+
+        printfflush();
+
+        return bufPtr;
+    }
+
+    // --- Evento di Completamento Invio Allarme ---
+    event void AlarmSender.sendDone(message_t* bufPtr, error_t error) {
+        if (&alarmPacket == bufPtr) {
+            alarmSendLocked = FALSE; // Rilascia il blocco quando l'invio è completato
+        }
+        if (error != SUCCESS) {
+            printf("ERRORE: Invio allarme fallito (%d)\n", error);
+            printfflush();
+        }
+    }
+}
+

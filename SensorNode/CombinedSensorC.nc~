@@ -1,0 +1,155 @@
+// CombinedSensorC.nc
+// Modulo logico per il nodo sensore combinato (PIR + Temp/Umidità/Luce)
+
+#include "msp430.h"
+#include "pkt.h"
+
+#define SAMPLING_INTERVAL 1024
+#define ADC_MOTION_THRESHOLD 2000
+
+module CombinedSensorC @safe() {
+    uses interface Boot;
+    uses interface Timer<TMilli> as SensorTimer;
+    uses interface Leds;
+    uses interface AMSend;
+    uses interface Packet;
+    uses interface SplitControl as RadioControl;
+
+    uses interface Read<uint16_t> as Temperature;
+    uses interface Read<uint16_t> as Humidity;
+    uses interface Read<uint16_t> as Light;
+
+    uses interface Read<uint16_t> as Adc0Sensor;
+}
+
+implementation {
+    message_t packet;
+    bool locked = FALSE;
+
+    uint16_t pirAdcValue;
+    uint16_t currentTempRaw;
+    uint16_t currentHumidityRaw;
+    uint16_t currentLightRaw;
+
+    bool pirReadDone = FALSE;
+    bool tempReadDone = FALSE;
+    bool humReadDone = FALSE;
+    bool lightReadDone = FALSE;
+
+    void attemptSend();
+
+    event void Boot.booted() {
+        call RadioControl.start();
+    }
+
+    event void RadioControl.startDone(error_t err) {
+        if (err == SUCCESS) {
+            call SensorTimer.startPeriodic(SAMPLING_INTERVAL);
+            call Leds.led0On();
+        } else {
+            call RadioControl.start();
+        }
+    }
+
+    event void RadioControl.stopDone(error_t err) {
+        call Leds.led0Off();
+    }
+
+    event void SensorTimer.fired() {
+        if (!locked) {
+            pirReadDone = FALSE;
+            tempReadDone = FALSE;
+            humReadDone = FALSE;
+            lightReadDone = FALSE;
+
+            call Adc0Sensor.read();
+            call Temperature.read();
+            call Humidity.read();
+            call Light.read();
+        }
+    }
+
+    event void Adc0Sensor.readDone(error_t result, uint16_t data) {
+        if (result == SUCCESS) {
+            pirAdcValue = data;
+            pirReadDone = TRUE;
+        } else {
+            pirReadDone = FALSE;
+        }
+        attemptSend();
+    }
+
+    event void Temperature.readDone(error_t code, uint16_t data) {
+        if (code == SUCCESS) {
+            currentTempRaw = data;
+            tempReadDone = TRUE;
+            call Leds.led1On();
+            call Leds.led1Off();
+        } else {
+            tempReadDone = FALSE;
+        }
+        attemptSend();
+    }
+
+    event void Humidity.readDone(error_t code, uint16_t data) {
+        if (code == SUCCESS) {
+            currentHumidityRaw = data;
+            humReadDone = TRUE;
+        } else {
+            humReadDone = FALSE;
+        }
+        attemptSend();
+    }
+
+    event void Light.readDone(error_t code, uint16_t data) {
+        if (code == SUCCESS) {
+            currentLightRaw = data;
+            lightReadDone = TRUE;
+        } else {
+            lightReadDone = FALSE;
+        }
+        attemptSend();
+    }
+
+    void attemptSend() {
+        if (pirReadDone && tempReadDone && humReadDone && lightReadDone && !locked) {
+            CombinedSensorMsg* msgPayload;
+
+            msgPayload = (CombinedSensorMsg*)call Packet.getPayload(&packet, sizeof(CombinedSensorMsg));
+
+            if (msgPayload == NULL) {
+                return;
+            }
+
+            msgPayload->nodeid = TOS_NODE_ID;
+            if (pirAdcValue > ADC_MOTION_THRESHOLD) {
+                msgPayload->motionDetected = MOTION;
+            } else {
+                msgPayload->motionDetected = NO_MOTION;
+            }
+            msgPayload->temperatureRaw = currentTempRaw;
+            msgPayload->humidityRaw = currentHumidityRaw;
+            msgPayload->lightRaw = currentLightRaw;
+            msgPayload->alarmStatus = ALARM_OFF; // Il sensore non decide l'allarme, lo imposta a OFF di default
+
+            if (call AMSend.send(AM_BROADCAST_ADDR, &packet, sizeof(CombinedSensorMsg)) == SUCCESS) {
+                locked = TRUE;
+                call Leds.led0Toggle();
+            } else {
+                locked = FALSE;
+            }
+        }
+    }
+
+    event void AMSend.sendDone(message_t* bufPtr, error_t error) {
+        if (&packet == bufPtr) {
+            locked = FALSE;
+        }
+        if (error == SUCCESS) {
+            call Leds.led0Off();
+        } else {
+            call Leds.led0On();
+        }
+    }
+}
+

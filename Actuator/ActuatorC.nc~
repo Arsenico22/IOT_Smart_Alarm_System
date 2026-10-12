@@ -1,0 +1,117 @@
+// ActuatorC.nc
+
+// Modulo logico per il nodo attuatore.
+
+// Riceve messaggi dalla Base Station e controlla il LED BLU (LED2) in base allo stato di allarme.
+
+
+
+#include "msp430.h"
+
+#include "pkt.h"
+
+
+
+module ActuatorC @safe() {
+
+    uses interface Boot;
+
+    uses interface Leds; // Per i LED onboard (LED0, LED1, LED2)
+
+    uses interface Receive as AMReceive; // Per ricevere messaggi radio
+
+    uses interface SplitControl as RadioControl;
+
+}
+
+
+
+implementation {
+
+
+
+    // --- Eventi di Boot ---
+
+    event void Boot.booted() {
+
+        call RadioControl.start();
+
+        call Leds.led2Off(); // Assicurati che il LED blu sia spento all'avvio
+
+        call Leds.led0Off(); // Assicurati che LED0 sia spento
+
+        call Leds.led1Off(); // Assicurati che LED1 sia spento
+
+    }
+
+
+
+    // --- Eventi di Controllo Radio ---
+
+    event void RadioControl.startDone(error_t err) {
+
+        if (err == SUCCESS) {
+
+            // Rimosso: call Leds.led2On(); // NON accendere il LED blu qui!
+
+            // Puoi accendere un altro LED per indicare che la radio è pronta, es:
+
+            call Leds.led0On(); // LED verde per indicare radio pronta
+
+        } else {
+
+            call RadioControl.start();
+
+        }
+
+    }
+
+
+
+    event void RadioControl.stopDone(error_t err) {
+
+        call Leds.led0Off(); // Spegni il LED di stato radio se usato
+
+        call Leds.led2Off(); // Assicurati che il LED blu sia spento se la radio si ferma
+
+    }
+
+
+
+    // --- Evento di Ricezione Messaggi ---
+
+    event message_t* AMReceive.receive(message_t* bufPtr, void* payload, uint8_t len) {
+
+        // Blink del LED0 per indicare la ricezione di un messaggio
+
+        call Leds.led0On();
+
+        call Leds.led0Off();
+
+
+
+        if (len == sizeof(CombinedSensorMsg)) {
+
+            CombinedSensorMsg* msg = (CombinedSensorMsg*)payload;
+
+
+
+            // Logica di attuazione: accende/spegne LED2 (blu) in base allo stato di allarme
+
+            if (msg->alarmStatus == ALARM_ON) {
+
+                call Leds.led2On(); // Accende LED2 (blu) se l'allarme è attivo
+
+            } else {
+
+                call Leds.led2Off(); // Spegne LED2 (blu) se l'allarme è spento
+
+            }
+
+        }
+
+        return bufPtr;
+
+    }
+
+}

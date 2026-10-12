@@ -1,0 +1,26 @@
+#ifndef PKT_H
+#define PKT_H
+
+// Definiamo un ID unico per i nostri messaggi radio.
+// Questo DEVE essere uguale sia nel nodo sensore che nella Base Station.
+enum {
+    AM_COMBINED_SENSOR_MSG = 77 // Utilizza l'ID 77 dal tuo pkt.h del PIR
+};
+
+// Struttura del messaggio che conterrà tutti i dati dei sensori
+// Combina i campi di 'sensor_msg' e 'MsgDetection'
+typedef nx_struct CombinedSensorMsg {
+    nx_uint16_t nodeid;          // ID del nodo sensore (da TOS_NODE_ID)
+    nx_uint8_t motionDetected;   // 0 = Nessun movimento, 1 = Movimento rilevato (dal PIR)
+    nx_uint16_t temperatureRaw;  // Valore grezzo della temperatura
+    nx_uint16_t humidityRaw;     // Valore grezzo dell'umidità
+    nx_uint16_t lightRaw;        // Valore grezzo della luminosità
+} CombinedSensorMsg;
+
+// Definizioni per lo stato di movimento (usate nel campo motionDetected)
+enum {
+    MOTION = 1, // Dal tuo pkt.h del PIR
+    NO_MOTION = 0 // Aggiunto per chiarezza nello stato non rilevato
+};
+
+#endif // PKT_H

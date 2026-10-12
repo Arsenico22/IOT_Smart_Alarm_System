@@ -1,0 +1,33 @@
+#ifndef PKT_H
+#define PKT_H
+
+// Definiamo un ID unico per i nostri messaggi radio.
+// Questo DEVE essere uguale in tutti i nodi che comunicano.
+enum {
+    AM_COMBINED_SENSOR_MSG = 77 // ID del messaggio
+};
+
+// Struttura del messaggio che conterrà tutti i dati dei sensori E lo stato dell'allarme
+typedef nx_struct CombinedSensorMsg {
+    nx_uint16_t nodeid;          // ID del nodo sensore
+    nx_uint8_t motionDetected;   // 0 = Nessun movimento, 1 = Movimento rilevato (dal PIR)
+    nx_uint16_t temperatureRaw;  // Valore grezzo della temperatura
+    nx_uint16_t humidityRaw;     // Valore grezzo dell'umidità
+    nx_uint16_t lightRaw;        // Valore grezzo della luminosità
+    nx_uint8_t alarmStatus;      // 0 = Allarme spento, 1 = Allarme attivo
+} CombinedSensorMsg;
+
+// Definizioni per lo stato di movimento
+enum {
+    MOTION = 1,
+    NO_MOTION = 0
+};
+
+// Definizioni per lo stato dell'allarme (usate nel campo alarmStatus)
+enum {
+    ALARM_OFF = 0,
+    ALARM_ON = 1
+};
+
+#endif // PKT_H
+
