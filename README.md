@@ -6,7 +6,13 @@ Modern security infrastructures require flexible, low-power, and wire-free senso
 
 🚀 System Architecture & Workflow:
 
-The network architecture is distributed across three discrete nodes communicating via TinyOS Active Messages (AM) over an IEEE 802.15.4 radio link:   Sensor Node (CombinedSensorAppC): Periodically samples ambient temperature, relative humidity, visible/infrared light, and monitors motion via an external PIR sensor. Raw readings are bundled into a structured packet payload (CombinedSensorMsg) and broadcasted wirelessly.   Base Station (BaseStationAppC): Acts as the network gateway. It receives raw radio payloads, converts digital ADC counts into physical measurement units using datasheet polynomial models, evaluates global alarm thresholds, dispatches action directives, and pipes telemetry over USB UART.   Actuator Node (ActuatorAppC): Listens for alarm directives from the network. Upon triggering, it drives a piezoelectric buzzer via direct MSP430 GPIO manipulation (P2.3) and toggles dedicated visual LED indicators.   
+The network architecture is distributed across three discrete nodes communicating via TinyOS Active Messages (AM) over an IEEE 802.15.4 radio link: 
+
+Sensor Node (CombinedSensorAppC): Periodically samples ambient temperature, relative humidity, visible/infrared light, and monitors motion via an external PIR sensor. Raw readings are bundled into a structured packet payload (CombinedSensorMsg) and broadcasted wirelessly.   
+
+Base Station (BaseStationAppC): Acts as the network gateway. It receives raw radio payloads, converts digital ADC counts into physical measurement units using datasheet polynomial models, evaluates global alarm thresholds, dispatches action directives, and pipes telemetry over USB UART.   
+
+Actuator Node (ActuatorAppC): Listens for alarm directives from the network. Upon triggering, it drives a piezoelectric buzzer via direct MSP430 GPIO manipulation (P2.3) and toggles dedicated visual LED indicators.   
 
 🔌 Hardware Interfacing & Signal Conditioning:
 
