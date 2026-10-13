@@ -16,9 +16,9 @@ Actuator Node (ActuatorAppC): Listens for alarm directives from the network. Upo
 
 🔌 Hardware Interfacing & Signal Conditioning:
 
-PIR Sensor Level Adaptation: The HC-SR501 PIR motion sensor outputs 5V logic, while the TelosB analog input (ADC0) operates up to 3.3 V}. 
-A passive resistive voltage divider (R_1 = 2 kΩ, R_2 = 5.1 kΩ) scales the voltage safely down to ≈ 3.59 V: 
-V_ADC0 = V_PIR × R2/((R1+R2))  ≈ 3.59 V
+PIR Sensor Level Adaptation:
+
+The HC-SR501 PIR motion sensor outputs 5V logic, while the TelosB analog input (ADC0) operates up to 3.3 V. A passive resistive voltage divider (R_1 = 2 kΩ, R_2 = 5.1 kΩ) scales the voltage safely down to ≈ 3.59 V: V_ADC0 = V_PIR × R2/(R1+R2) ≈ 3.59 V
 
 	Onboard Sensor Drivers: Integrates Sensirion SHT11 (temperature/humidity) and Hamamatsu S1087-01 (light photodiode) drivers alongside precision MSP430 12-bit ADC configurations (AdcConfigC). 
 
@@ -27,12 +27,12 @@ V_ADC0 = V_PIR × R2/((R1+R2))  ≈ 3.59 V
 📊 Data Processing & Physical Conversions
 
 The Base Station computes physical quantities from raw sensor ADC counts: 
-	Temperature (°C): Linear conversion from SHT11 raw data: 
-Temp = -39 + 0.01 × SO_Temp
-	Relative Humidity (RH%): Polynomial compensation model: 
-RH_linear = c_1 + c_2 × SO_RH + c_3 × SO_RH^2  	(c_1=-4.0,c_2=0.0405,c_3=-2.8× 10^(-6) )
-	Illuminance (Lux): Derived from 12-bit photodiode conversion (1.5 V reference, 100 kΩ resistor): 
-Lux = Raw_Light × 2.8161
+
+	Temperature (°C): Linear conversion from SHT11 raw data: Temp = -39 + 0.01 × SO_Temp
+
+	Relative Humidity (RH%): Polynomial compensation model: RH_linear = c_1 + c_2 × SO_RH + c_3 × SO_RH^2  	(c_1=-4.0,c_2=0.0405,c_3=-2.8× 10^(-6))
+
+	Illuminance (Lux): Derived from 12-bit photodiode conversion (1.5 V reference, 100 kΩ resistor): Lux = Raw_Light × 2.8161
 
 🖥️ Real-Time Telemetry & Gateway:
 
