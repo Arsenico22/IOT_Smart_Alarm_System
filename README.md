@@ -1,10 +1,10 @@
 🛡️ Smart Alarm System & WSN Intruder Detection
 
-📌 Project Overview:
+📌 Project Overview
 
 Modern security infrastructures require flexible, low-power, and wire-free sensor networks capable of continuous environmental monitoring. This project implements a Wireless Sensor Network (WSN) using TelosB mote platforms running TinyOS, featuring multi-sensor data acquisition, IEEE 802.15.4 radio communication, precision analog signal conditioning, and real-time TCP telemetry streaming.   
 
-🚀 System Architecture & Workflow:
+🚀 System Architecture & Workflow
 
 The network architecture is distributed across three discrete nodes communicating via TinyOS Active Messages (AM) over an IEEE 802.15.4 radio link: 
 
@@ -14,7 +14,7 @@ Base Station (BaseStationAppC): Acts as the network gateway. It receives raw rad
 
 Actuator Node (ActuatorAppC): Listens for alarm directives from the network. Upon triggering, it drives a piezoelectric buzzer via direct MSP430 GPIO manipulation (P2.3) and toggles dedicated visual LED indicators.   
 
-🔌 Hardware Interfacing & Signal Conditioning:
+🔌 Hardware Interfacing & Signal Conditioning
 
 PIR Sensor Level Adaptation:
 
@@ -34,6 +34,6 @@ The Base Station computes physical quantities from raw sensor ADC counts:
 
 	Illuminance (Lux): Derived from 12-bit photodiode conversion (1.5 V reference, 100 kΩ resistor): Lux = Raw_Light × 2.8161
 
-🖥️ Real-Time Telemetry & Gateway:
+🖥️ Real-Time Telemetry & Gateway
 
 Leverages TinyOS PrintfC over USB UART, bridged via Serial Forwarder to stream live system diagnostics and telemetry packets directly to TCP port 9002 for remote monitoring.   
